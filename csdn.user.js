@@ -1,10 +1,10 @@
 // ==UserScript==
 // @name         CSDN Show Full Article
 // @namespace    none
-// @version      0.1.1
+// @version      0.1.2
 // @description  Automatically show full article in CSDN
 // @author       zyr17
-// @match        https://blog.csdn.net/*
+// @match        https://*.csdn.net/*
 // @grant        none
 // ==/UserScript==
 (function() {
