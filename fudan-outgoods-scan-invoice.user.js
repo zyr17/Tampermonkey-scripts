@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         扫描发票填存货
 // @namespace    http://tampermonkey.net/
-// @version      0.2
+// @version      0.3
 // @description  通过PDF扫描上面的二维码从而获取发票信息并快速填写复旦大学存货单
 // @author       You
 // @match        https://zcc.fudan.edu.cn/private/outgoods/form.action?outGoodsMain.temp=system&outGoodsMain.menuFlag=gr
@@ -25,6 +25,29 @@
 // ==/UserScript==
 
 // @require      https://cdn.bootcdn.net/ajax/libs/html5-qrcode/2.0.3/html5-qrcode.min.js
+
+
+/*
+
+简单使用说明：
+
+打开资产管理系统，点击报账单-外购存货（必须从该入口进入，我的资产-外购存货-新增将无法触发脚本）
+
+填写必要信息。如果需要填写导师信息则填写导师工号及姓名，否则留空。校区填对应字母。注意经费号，可能需要改动！
+
+点击下方浏览文件，并选择发票PDF。一般的电子发票都能正常识别，识别成功后会自动填写对应信息，之后点击下一步即可。识别失败会警告，请手动填写该发票。
+
+点击发票采集，会自动填写发票号码及验证码。点击获取货物明细，点击正中间的点击开始填写，点击确定，完成发票采集。
+
+点击明细提取，自动提取该发票的所有明细。暂时不支持提取部分明细，如有该需求请关闭脚本。
+
+！！！保存两次！！！由于报账系统原因，无法一次性保存经费号和明细，需要连续点击两次保存。
+
+提交存货单。
+
+*/
+
+
 let $ = unsafeWindow.$;
 ;
 (function() {
@@ -62,6 +85,26 @@ let $ = unsafeWindow.$;
         });
     }
     load_and_sync(false);
+
+    function add_info_div() {
+        // 基本信息格子
+        let infodiv = document.createElement('div');
+        document.body.appendChild(infodiv);
+        infodiv.style.cssText = 'width: 300px; display: flex; flex-direction: column; text-align: left; border: red solid 2px; background: black; z-index: 999;';
+        let data_name = {'PROF_NAME': '研究生导师（不需要请留空）', 'PROF_ID': '导师工号（不需要请留空）', 'PHONE': '电话号码', 'FUND_NAME': '经费号', 'CAMPUS_NO': '校区编号 枫林=FL 邯郸=HD 江湾=JW 其他=XW 张江=ZJ'};
+        for (let i in data_name) {
+            // console.log(i, data_name[i]);
+            let span = document.createElement('span');
+            span.innerText = data_name[i];
+            span.style.cssText = 'margin-top: 3px; background: cyan';
+            infodiv.appendChild(span);
+            let input = document.createElement('input');
+            input.id = i;
+            input.onchange = sync_and_save;
+            infodiv.appendChild(input);
+        }
+        load_and_sync();
+    }
 
     let popup_interval = setInterval(function () { // 主界面点击确认、保存、提交等按钮
         let popup = document.querySelectorAll('.layui-layer');
@@ -121,6 +164,7 @@ let $ = unsafeWindow.$;
 
     if (unsafeWindow.location.href.indexOf('https://zcc.fudan.edu.cn/private/outgoods/form.action') != -1 && unsafeWindow.location.href != 'https://zcc.fudan.edu.cn/private/outgoods/form.action?outGoodsMain.temp=system&outGoodsMain.menuFlag=gr'){
         // 存货界面自动填写基金号，明细提取后管用，需要保存两次
+        add_info_div();
         let input = unsafeWindow.document.getElementById('jfly-single-no');
         function fill() {
             input.value = '';
@@ -308,30 +352,14 @@ let $ = unsafeWindow.$;
                     newcanvas.style.width = 800;
                     newcanvas.style.height = 450;
                     // newcanvas.hidden = true;
-                });
+                }).catch(() => {console.log('failed');alert('QRCode read failed! cannot auto fill this invoice.');});
             });
         });
 
         return;
     };
 
-    // 基本信息格子
-    let infodiv = document.createElement('div');
-    document.body.appendChild(infodiv);
-    infodiv.style.cssText = 'width: 300px; display: flex; flex-direction: column; text-align: left; border: red solid 2px; background: black; z-index: 999;';
-    let data_name = {'PROF_NAME': '研究生导师（不需要请留空）', 'PROF_ID': '导师工号（不需要请留空）', 'PHONE': '电话号码', 'FUND_NAME': '经费号', 'CAMPUS_NO': '校区编号 枫林=FL 邯郸=HD 江湾=JW 其他=XW 张江=ZJ'};
-    for (let i in data_name) {
-        // console.log(i, data_name[i]);
-        let span = document.createElement('span');
-        span.innerText = data_name[i];
-        span.style.cssText = 'margin-top: 3px; background: cyan';
-        infodiv.appendChild(span);
-        let input = document.createElement('input');
-        input.id = i;
-        input.onchange = sync_and_save;
-        infodiv.appendChild(input);
-    }
-    load_and_sync();
+    add_info_div();
 
     // 选PDF格子
     let btndiv = document.createElement('div');
