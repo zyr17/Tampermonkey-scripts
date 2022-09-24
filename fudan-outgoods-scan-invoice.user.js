@@ -1,12 +1,13 @@
 // ==UserScript==
 // @name         扫描发票填存货
 // @namespace    http://tampermonkey.net/
-// @version      0.1
-// @description  try to take over the world!
+// @version      0.2
+// @description  通过PDF扫描上面的二维码从而获取发票信息并快速填写复旦大学存货单
 // @author       You
 // @match        https://zcc.fudan.edu.cn/private/outgoods/form.action?outGoodsMain.temp=system&outGoodsMain.menuFlag=gr
 // @match        https://zcc.fudan.edu.cn/private/front/index.action
 // @match        https://zcc.fudan.edu.cn/private/outgoods/form.action*
+// @match        https://zcc.fudan.edu.cn/private/outgoods/extractDetails.action*
 // @match        http://www.wxpgl.fudan.edu.cn/invoice/login/main_new.jsp*
 // @match        http://www.wxpgl.fudan.edu.cn/invoice/login/edit_new.jsp*
 // @match        http://www.wxpgl.fudan.edu.cn/invoice/login/invoice_cert_success.jsp*
@@ -19,6 +20,8 @@
 // @grant        GM.setValue
 // @grant        GM.listValues
 // @connect      *
+// @downloadURL  https://github.com/zyr17/Tampermonkey-scripts/raw/master/fudan-outgoods-scan-invoice.user.js
+// @updateURL    https://github.com/zyr17/Tampermonkey-scripts/raw/master/fudan-outgoods-scan-invoice.user.js
 // ==/UserScript==
 
 // @require      https://cdn.bootcdn.net/ajax/libs/html5-qrcode/2.0.3/html5-qrcode.min.js
@@ -27,14 +30,86 @@ let $ = unsafeWindow.$;
 (function() {
     'use strict';
 
-    let PROF_NAME = 'aaa';
-    let PHONE = '13000000000';
-    let PROF_ID = '11111';
-    let DEFAULT_COMPANY_NAME = '';
-    let FUND_NAME = 'VVV1234567';
-    // let DEFAULT_COMPANY_NAME = '上海圆迈贸易有限公司';
+    let DATA = {
+        'PROF_NAME': '',
+        'PHONE': '',
+        'PROF_ID': '',
+        'FUND_NAME': '',
+        'CAMPUS_NO': '',
+    };
 
-    if (unsafeWindow.location.href.indexOf('index') != -1){
+    function sync_and_save() {
+        for (let i in DATA) {
+            let input = unsafeWindow.document.querySelector('#' + i);
+            DATA[i] = input.value;
+        }
+        GM.setValue('DATA', JSON.stringify(DATA)).then(() => {
+            console.log(DATA);
+            GM.getValue('DATA').then((res) => { console.log('DATA', res); });
+        });
+    }
+
+    function load_and_sync(do_sync = true) {
+        GM.getValue('DATA').then((res) => {
+            if (res) {
+                DATA = JSON.parse(res);
+                if (do_sync)
+                    for (let i in DATA) {
+                        let input = unsafeWindow.document.querySelector('#' + i);
+                        input.value = DATA[i];
+                    }
+            }
+        });
+    }
+    load_and_sync(false);
+
+    let popup_interval = setInterval(function () { // 主界面点击确认、保存、提交等按钮
+        let popup = document.querySelectorAll('.layui-layer');
+        if (popup.length > 0) {
+            popup = popup[0];
+            let texts = popup.innerText;
+            console.log(texts);
+            if (texts.indexOf('发票采集后，请点击明细提取按钮提取发票明细') != -1 || texts.indexOf('保存成功！') != -1 || texts.indexOf('提交成功！') != -1) {
+                let btn = document.querySelector('.layui-layer .layui-layer-btn0');
+                if (btn) btn.click();
+            }
+            if (texts.indexOf('提交成功！') != -1) {
+                clearInterval(popup_interval)
+            }
+        }
+    }, 100);
+
+    if (unsafeWindow.location.href.indexOf('/private/outgoods/extractDetails.action') != -1){ // 自动打钩明细提取并确认
+        // unsafeWindow._systemUI.checkedAll(this);
+        let input = unsafeWindow.document.getElementById('jfly-single-no');
+        let interval_id;
+        function check() {
+            let checkbox = unsafeWindow.document.querySelectorAll('input');
+            console.log(checkbox);
+            let click_flag = 0;
+            for (let i = 0; i < checkbox.length; i ++ ) {
+                let cb = checkbox[i];
+                console.log(cb);
+                if (cb.type == 'checkbox' && !cb.checked) {
+                    cb.click();
+                    click_flag = 1;
+                }
+            }
+            if (click_flag){
+                clearInterval(interval_id);
+                let btn = unsafeWindow.document.querySelectorAll('button');
+                for (let i = 0; i < btn.length; i ++ ) {
+                    let b = btn[i];
+                    console.log(b, b.innerText);
+                    if (b.innerText.indexOf('批量提取') != -1) b.click();
+                }
+            }
+        }
+        interval_id = setInterval(check, 1000);
+        return;
+    }
+
+    if (unsafeWindow.location.href.indexOf('index') != -1){ // 主界面直接点击打开存货界面
         let func = unsafeWindow.openIntegratedTqb;
         function f(x, y) {
             if (x == '' && y == '') unsafeWindow.location.href = 'https://zcc.fudan.edu.cn/private/outgoods/form.action?outGoodsMain.temp=system&outGoodsMain.menuFlag=gr';
@@ -45,11 +120,12 @@ let $ = unsafeWindow.$;
     }
 
     if (unsafeWindow.location.href.indexOf('https://zcc.fudan.edu.cn/private/outgoods/form.action') != -1 && unsafeWindow.location.href != 'https://zcc.fudan.edu.cn/private/outgoods/form.action?outGoodsMain.temp=system&outGoodsMain.menuFlag=gr'){
+        // 存货界面自动填写基金号，明细提取后管用，需要保存两次
         let input = unsafeWindow.document.getElementById('jfly-single-no');
         function fill() {
             input.value = '';
             //setTimeout(() => {
-            input.value = FUND_NAME;
+            input.value = DATA.FUND_NAME;
             unsafeWindow.jfly_changeVal();
             //}, 50);
         }
@@ -69,7 +145,7 @@ let $ = unsafeWindow.$;
         return;
     }
 
-    if (unsafeWindow.location.href.indexOf('http://www.wxpgl.fudan.edu.cn/invoice/login/edit_new.jsp') != -1){
+    if (unsafeWindow.location.href.indexOf('http://www.wxpgl.fudan.edu.cn/invoice/login/edit_new.jsp') != -1){ // 初始填写界面，扫描发票二维码并填写
         function confirm() {
             document.querySelector('.messager-button > a') && document.querySelector('.messager-button > a').click();
         }
@@ -83,13 +159,13 @@ let $ = unsafeWindow.$;
         }
         let btn = document.createElement('button');
         document.body.appendChild(btn);
-        btn.style.cssText = 'position: fixed; top: 50px; left: 5px; display: flex; flex-direction: colum; text-align: left; border: red solid 2px; background: cyan; z-index: 999; height: 40px; width: 300px;';
-        btn.innerText = '开始填写';
+        btn.style.cssText = 'position: fixed; top: 25px; left: 40%; display: flex; flex-direction: colum; text-align: left; border: red solid 2px; background: cyan; z-index: 999; height: 40px; width: 300px;';
+        btn.innerText = '点击开始填写';
         btn.onclick = start_click;
         return;
     }
 
-    if (unsafeWindow.location.href.indexOf('http://www.wxpgl.fudan.edu.cn/invoice/login/invoice_cert_success.jsp') != -1){
+    if (unsafeWindow.location.href.indexOf('http://www.wxpgl.fudan.edu.cn/invoice/login/invoice_cert_success.jsp') != -1){ // 发票验证成功后点击确认
         function confirm() {
             document.querySelector('#closeBtn') && document.querySelector('#closeBtn').click();
         }
@@ -118,17 +194,21 @@ let $ = unsafeWindow.$;
     }
 
     function fill_data(invoice) {
+        if ((!!DATA.PROF_ID) != (!!DATA.PROF_NAME)) {
+            alert('导师姓名和工号未全填写或全空！填写正确后刷新网页并重新选择PDF');
+            return;
+        }
         function getdate(date) {
             date = date.toString();
             return date[0] + date[1] + date[2] + date[3] + '-' + date[4] + date[5] + '-' + date[6] + date[7];
         }
         let data = {
-            "outGoodsMain.supplier": DEFAULT_COMPANY_NAME,
-            "outGoodsMain.campusNo": "JW",
+            "outGoodsMain.supplier": "",
+            "outGoodsMain.campusNo": DATA.CAMPUS_NO,
             "outGoodsMain.authorize": "1",
-            "outGoodsMain.authorizeUser": PROF_ID,
-            "outGoodsMain.telephone": PHONE,
-            "outGoodsMain.graduateTeacher": PROF_NAME,
+            "outGoodsMain.authorizeUser": DATA.PROF_ID,
+            "outGoodsMain.telephone": DATA.PHONE,
+            "outGoodsMain.graduateTeacher": DATA.PROF_NAME,
             "outGoodsMain.invoiceNo": invoice.no,
             "outGoodsMain.invoiceCode": invoice.code,
             "outGoodsMain.invoiceDate": getdate(invoice.date)
@@ -153,7 +233,7 @@ let $ = unsafeWindow.$;
         }
 
         // select authorizer id
-        document.querySelector('#useridId').value = PROF_ID;
+        document.querySelector('#useridId').value = DATA.PROF_ID;
         function starid(id){
             id = id.toString();
             let res = '';
@@ -162,10 +242,9 @@ let $ = unsafeWindow.$;
             res = res + id.slice(id.length - 2);
             return res;
         }
-        document.querySelector('#useridName').value = `${starid(PROF_ID)} | ${PROF_NAME}`;
+        if (DATA.PROF_ID || DATA.PROF_NAME)
+            document.querySelector('#useridName').value = `${starid(DATA.PROF_ID)} | ${DATA.PROF_NAME}`;
 
-        //经费来源
-        //$('#jfly-single-no').val(FUND_NAME);
         unsafeWindow.jfly_changeVal();
     }
 
@@ -236,9 +315,28 @@ let $ = unsafeWindow.$;
         return;
     };
 
+    // 基本信息格子
+    let infodiv = document.createElement('div');
+    document.body.appendChild(infodiv);
+    infodiv.style.cssText = 'width: 300px; display: flex; flex-direction: column; text-align: left; border: red solid 2px; background: black; z-index: 999;';
+    let data_name = {'PROF_NAME': '研究生导师（不需要请留空）', 'PROF_ID': '导师工号（不需要请留空）', 'PHONE': '电话号码', 'FUND_NAME': '经费号', 'CAMPUS_NO': '校区编号 枫林=FL 邯郸=HD 江湾=JW 其他=XW 张江=ZJ'};
+    for (let i in data_name) {
+        // console.log(i, data_name[i]);
+        let span = document.createElement('span');
+        span.innerText = data_name[i];
+        span.style.cssText = 'margin-top: 3px; background: cyan';
+        infodiv.appendChild(span);
+        let input = document.createElement('input');
+        input.id = i;
+        input.onchange = sync_and_save;
+        infodiv.appendChild(input);
+    }
+    load_and_sync();
+
+    // 选PDF格子
     let btndiv = document.createElement('div');
     document.body.appendChild(btndiv);
-    btndiv.style.cssText = 'top: 50px; left: 5px; display: flex; flex-direction: colum; text-align: left; border: red solid 2px; background: cyan; z-index: 999; height: 40px; width: 300px;';
+    btndiv.style.cssText = 'top: 50px; left: 5px; display: flex; flex-direction: column; text-align: left; border: red solid 2px; background: cyan; z-index: 999; height: 40px; width: 300px;';
     btndiv.innerHTML = `<input id='choosePDF' type='file' accept="application/pdf">`;
     let pdfinput = document.getElementById('choosePDF');
     pdfinput.onchange = function () {
