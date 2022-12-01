@@ -8,9 +8,9 @@
 // @match        https://zcc.fudan.edu.cn/private/front/index.action
 // @match        https://zcc.fudan.edu.cn/private/outgoods/form.action*
 // @match        https://zcc.fudan.edu.cn/private/outgoods/extractDetails.action*
-// @match        http://www.wxpgl.fudan.edu.cn/invoice/login/main_new.jsp*
-// @match        http://www.wxpgl.fudan.edu.cn/invoice/login/edit_new.jsp*
-// @match        http://www.wxpgl.fudan.edu.cn/invoice/login/invoice_cert_success.jsp*
+// @match        https://*.wxpgl.fudan.edu.cn/invoice/login/main_new.jsp*
+// @match        https://*.wxpgl.fudan.edu.cn/invoice/login/edit_new.jsp*
+// @match        https://*.wxpgl.fudan.edu.cn/invoice/login/invoice_cert_success.jsp*
 // @icon         https://www.fudan.edu.cn/_upload/tpl/00/0e/14/template14/images/favicon.ico
 // @require      https://cdn.bootcdn.net/ajax/libs/pdf.js/2.10.377/pdf.min.js
 // @require      https://cdn.bootcdn.net/ajax/libs/qr-scanner/1.2.0/qr-scanner.umd.min.js
@@ -177,7 +177,7 @@ let $ = unsafeWindow.$;
         return;
     }
 
-    if (unsafeWindow.location.href.indexOf('http://www.wxpgl.fudan.edu.cn/invoice/login/main_new.jsp') != -1){
+    if (unsafeWindow.location.href.indexOf('https://wxpgl.fudan.edu.cn/invoice/login/main_new.jsp') != -1){
         // fill verify code
         let id = document.getElementById('fpdm').value + document.getElementById('fphm').value // code, no
         console.log(id);
@@ -189,7 +189,7 @@ let $ = unsafeWindow.$;
         return;
     }
 
-    if (unsafeWindow.location.href.indexOf('http://www.wxpgl.fudan.edu.cn/invoice/login/edit_new.jsp') != -1){ // 初始填写界面，扫描发票二维码并填写
+    if (unsafeWindow.location.href.indexOf('https://wxpgl.fudan.edu.cn/invoice/login/edit_new.jsp') != -1){ // 初始填写界面，扫描发票二维码并填写
         function confirm() {
             document.querySelector('.messager-button > a') && document.querySelector('.messager-button > a').click();
         }
@@ -198,8 +198,8 @@ let $ = unsafeWindow.$;
             let startdelay = 0;
             setTimeout(() => {document.querySelector('.goodsType a').click();}, startdelay);
             setTimeout(() => {document.querySelector('.jMenuList').children[0].children[1].click();}, startdelay + 500);
-            setTimeout(() => {document.querySelector('#dtlTable a').click();}, startdelay + 1000);
-            setTimeout(() => {document.querySelector('.jMenuList').children[0].children[3].click();}, startdelay + 1500);
+            setTimeout(() => {document.querySelector('#dtlTable a').click();}, startdelay + 1500);
+            setTimeout(() => {document.querySelector('.jMenuList').children[0].children[3].click();}, startdelay + 2000);
         }
         let btn = document.createElement('button');
         document.body.appendChild(btn);
@@ -209,7 +209,7 @@ let $ = unsafeWindow.$;
         return;
     }
 
-    if (unsafeWindow.location.href.indexOf('http://www.wxpgl.fudan.edu.cn/invoice/login/invoice_cert_success.jsp') != -1){ // 发票验证成功后点击确认
+    if (unsafeWindow.location.href.indexOf('https://wxpgl.fudan.edu.cn/invoice/login/invoice_cert_success.jsp') != -1){ // 发票验证成功后点击确认
         function confirm() {
             document.querySelector('#closeBtn') && document.querySelector('#closeBtn').click();
         }
