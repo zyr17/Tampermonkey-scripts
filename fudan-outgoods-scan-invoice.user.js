@@ -8,9 +8,9 @@
 // @match        https://zcc.fudan.edu.cn/private/front/index.action
 // @match        https://zcc.fudan.edu.cn/private/outgoods/form.action*
 // @match        https://zcc.fudan.edu.cn/private/outgoods/extractDetails.action*
-// @match        https://*.wxpgl.fudan.edu.cn/invoice/login/main_new.jsp*
-// @match        https://*.wxpgl.fudan.edu.cn/invoice/login/edit_new.jsp*
-// @match        https://*.wxpgl.fudan.edu.cn/invoice/login/invoice_cert_success.jsp*
+// @match        https://wxpgl.fudan.edu.cn/invoice/login/main_new.jsp*
+// @match        https://wxpgl.fudan.edu.cn/invoice/login/edit_new.jsp*
+// @match        https://wxpgl.fudan.edu.cn/invoice/login/invoice_cert_success.jsp*
 // @icon         https://www.fudan.edu.cn/_upload/tpl/00/0e/14/template14/images/favicon.ico
 // @require      https://cdn.bootcdn.net/ajax/libs/pdf.js/2.10.377/pdf.min.js
 // @require      https://cdn.bootcdn.net/ajax/libs/qr-scanner/1.2.0/qr-scanner.umd.min.js
@@ -59,6 +59,7 @@ let $ = unsafeWindow.$;
         'PROF_ID': '',
         'FUND_NAME': '',
         'CAMPUS_NO': '',
+        'INVOICE_TYPE': '1',
     };
 
     function sync_and_save() {
@@ -75,7 +76,7 @@ let $ = unsafeWindow.$;
     function load_and_sync(do_sync = true) {
         GM.getValue('DATA').then((res) => {
             if (res) {
-                DATA = JSON.parse(res);
+                Object.assign(DATA, JSON.parse(res));
                 if (do_sync)
                     for (let i in DATA) {
                         let input = unsafeWindow.document.querySelector('#' + i);
@@ -91,7 +92,7 @@ let $ = unsafeWindow.$;
         let infodiv = document.createElement('div');
         document.body.appendChild(infodiv);
         infodiv.style.cssText = 'width: 300px; display: flex; flex-direction: column; text-align: left; border: red solid 2px; background: black; z-index: 999;';
-        let data_name = {'PROF_NAME': '研究生导师（不需要请留空）', 'PROF_ID': '导师工号（不需要请留空）', 'PHONE': '电话号码', 'FUND_NAME': '经费号', 'CAMPUS_NO': '校区编号 枫林=FL 邯郸=HD 江湾=JW 其他=XW 张江=ZJ'};
+        let data_name = {'PROF_NAME': '研究生导师（不需要请留空）', 'PROF_ID': '导师工号（不需要请留空）', 'PHONE': '电话号码', 'FUND_NAME': '经费号', 'CAMPUS_NO': '校区编号 枫林=FL 邯郸=HD 江湾=JW 其他=XW 张江=ZJ', 'INVOICE_TYPE': '新版=0 旧版=1'};
         for (let i in data_name) {
             // console.log(i, data_name[i]);
             let span = document.createElement('span');
@@ -120,7 +121,7 @@ let $ = unsafeWindow.$;
                 clearInterval(popup_interval)
             }
         }
-    }, 100);
+    }, 300);
 
     if (unsafeWindow.location.href.indexOf('/private/outgoods/extractDetails.action') != -1){ // 自动打钩明细提取并确认
         // unsafeWindow._systemUI.checkedAll(this);
@@ -237,7 +238,45 @@ let $ = unsafeWindow.$;
         };
     }
 
+    function select_click(chosen, key) {
+        console.log(chosen, key);
+        $(chosen).trigger('mousedown');
+        $(chosen).trigger('mouseup');
+        setTimeout(() => {
+            console.log('drop');
+            let drops = document.querySelectorAll('#select2-drop .select2-result-label');
+            for (let I = 0; I < drops.length; I ++ ) {
+                let i = drops[I];
+                console.log(i);
+                if (i.innerText.indexOf(key) != -1) {
+                    $(i).trigger('mousedown');
+                    $(i).trigger('mouseup');
+                    return;
+                }
+            }
+        }, 100);
+    }
+
+    let INVOICE = undefined;
+
     function fill_data(invoice) {
+        // 先选择旧版发票，把代码格子展示出来
+        console.log(invoice);
+        let select2s = document.querySelectorAll('.select2-chosen');
+        for (let I = 0; I < select2s.length; I ++ ){
+            let i = select2s[I];
+            console.log(i);
+            if (i && i.parentElement.parentElement.parentElement.previousElementSibling.innerText.indexOf('发票类型') != -1)
+                select_click(i, '旧版发票');
+        }
+        INVOICE = invoice;
+        // 再开始填写
+        setTimeout(fill_data_real, 200);
+    }
+
+    function fill_data_real() {
+        let invoice = INVOICE;
+        console.log(invoice);
         if ((!!DATA.PROF_ID) != (!!DATA.PROF_NAME)) {
             alert('导师姓名和工号未全填写或全空！填写正确后刷新网页并重新选择PDF');
             return;
@@ -253,6 +292,7 @@ let $ = unsafeWindow.$;
             "outGoodsMain.authorizeUser": DATA.PROF_ID,
             "outGoodsMain.telephone": DATA.PHONE,
             "outGoodsMain.graduateTeacher": DATA.PROF_NAME,
+            "outGoodsMain.invoiceType": DATA.INVOICE_TYPE,
             "outGoodsMain.invoiceNo": invoice.no,
             "outGoodsMain.invoiceCode": invoice.code,
             "outGoodsMain.invoiceDate": getdate(invoice.date)
@@ -270,8 +310,13 @@ let $ = unsafeWindow.$;
         let select2s = document.querySelectorAll('.select2-chosen');
         for (let I in select2s){
             let i = select2s[I];
-            if (i && i.innerText && i.innerText.indexOf('请选择') != -1){
-                i.innerText = '江湾校区';
+            if (i && i.parentElement.parentElement.parentElement.previousElementSibling.innerText.indexOf('发票类型') != -1) {
+                let d = { '0': '新版发票', '1': '旧版发票' };
+                i.innerText = d[DATA.INVOICE_TYPE];
+            }
+            else if (i && i.parentElement.parentElement.parentElement.previousElementSibling.innerText.indexOf('校区') != -1){
+                let d = { 'FL': '枫林校区', 'JW': '江湾校区', 'HD': '邯郸校区', 'ZJ': '张江校区', 'XW': '其他校区' };
+                i.innerText = d[DATA.CAMPUS_NO];
                 break;
             }
         }
@@ -303,6 +348,8 @@ let $ = unsafeWindow.$;
                 var script, dataURL, worker = null;
                 if (response.status === 200) {
                     script = response.responseText;
+                    console.log(script)
+                    console.log(btoa(script))
                     dataURL = 'data:text/javascript;base64,' + btoa(script);
                     // worker = new unsafeWindow.Worker(dataURL);
                 }
