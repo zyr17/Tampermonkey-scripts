@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         扫描发票填存货
 // @namespace    http://tampermonkey.net/
-// @version      0.4
+// @version      0.5
 // @description  通过PDF扫描上面的二维码从而获取发票信息并快速填写复旦大学存货单
 // @author       You
 // @match        https://zcc.fudan.edu.cn/private/outgoods/form.action?outGoodsMain.temp=system&outGoodsMain.menuFlag=gr
