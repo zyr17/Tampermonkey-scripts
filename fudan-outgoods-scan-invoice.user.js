@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         扫描发票填存货
 // @namespace    http://tampermonkey.net/
-// @version      0.5
+// @version      0.5.1
 // @description  通过PDF扫描上面的二维码从而获取发票信息并快速填写复旦大学存货单
 // @author       You
 // @match        https://zcc.fudan.edu.cn/private/outgoods/form.action?outGoodsMain.temp=system&outGoodsMain.menuFlag=gr
@@ -260,14 +260,16 @@ let $ = unsafeWindow.$;
     let INVOICE = undefined;
 
     function fill_data(invoice) {
-        // 先选择旧版发票，把代码格子展示出来
+        // 如果是旧版发票，先选择旧版发票，把代码格子展示出来
         console.log(invoice);
-        let select2s = document.querySelectorAll('.select2-chosen');
-        for (let I = 0; I < select2s.length; I ++ ){
-            let i = select2s[I];
-            console.log(i);
-            if (i && i.parentElement.parentElement.parentElement.previousElementSibling.innerText.indexOf('发票类型') != -1)
-                select_click(i, '旧版发票');
+        if (DATA.INVOICE_TYPE == 1) {
+            let select2s = document.querySelectorAll('.select2-chosen');
+            for (let I = 0; I < select2s.length; I ++ ){
+                let i = select2s[I];
+                console.log(i);
+                if (i && i.parentElement.parentElement.parentElement.previousElementSibling.innerText.indexOf('发票类型') != -1)
+                    select_click(i, '旧版发票');
+            }
         }
         INVOICE = invoice;
         // 再开始填写
